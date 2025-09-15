@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: .
+    ports:
+      - "80:80"
+    environment:
+      - REACT_APP_API_URL=http://139.196.254.168:8000
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # 如果后端也在同一台服务器，可以添加后端服务配置
+  # backend:
+  #   image: your-backend-image:latest
+  #   ports:
+  #     - "8000:8000"
+  #   restart: unless-stopped
+  #   networks:
+  #     - app-network
+
+networks:
+  app-network:
+    driver: bridge

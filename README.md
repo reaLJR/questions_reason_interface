@@ -76,6 +76,143 @@ npm start
 npm run build
 ```
 
+## 服务端部署配置
+
+### Docker部署
+
+#### 环境要求
+- Docker >= 20.0.0
+- Docker Compose >= 2.0.0 (可选)
+
+#### 快速部署
+
+1. **构建镜像**
+```bash
+# 使用提供的部署脚本
+./deploy.sh
+```
+
+2. **传输到服务器**
+```bash
+# 将生成的镜像文件传输到服务器
+scp questions-reason-interface.tar root@your-server-ip:/root/
+```
+
+3. **服务器部署**
+```bash
+# SSH登录服务器
+ssh root@your-server-ip
+
+# 清理旧镜像（可选）
+docker stop $(docker ps -q) 2>/dev/null || true
+docker rm $(docker ps -aq) 2>/dev/null || true
+docker rmi $(docker images -q) -f
+
+# 加载新镜像
+docker load -i questions-reason-interface.tar
+
+# 运行容器
+docker run -d --name questions-reason-interface \
+  -p 80:80 \
+  -e REACT_APP_API_URL=http://your-server-ip:8000 \
+  --restart unless-stopped \
+  questions-reason-interface:latest
+```
+
+#### Docker Compose部署（推荐）
+
+1. **使用Docker Compose**
+```bash
+# 在服务器上运行
+docker-compose up -d
+```
+
+2. **Docker Compose配置说明**
+```yaml
+version: '3.8'
+services:
+  frontend:
+    build: .
+    ports:
+      - "80:80"
+    environment:
+      - REACT_APP_API_URL=http://your-server-ip:8000
+    restart: unless-stopped
+    networks:
+      - app-network
+```
+
+#### 环境变量配置
+
+| 变量名 | 说明 | 默认值 | 示例 |
+|--------|------|--------|------|
+| `REACT_APP_API_URL` | 后端API服务地址 | `http://localhost:8000` | `http://139.196.254.168:8000` |
+
+#### 部署架构
+
+```
+┌─────────────────┐    ┌─────────────────┐
+│   前端服务       │    │   后端服务       │
+│   (Nginx)       │    │   (API Server)  │
+│   Port: 80      │◄──►│   Port: 8000    │
+│   Docker        │    │   Docker        │
+└─────────────────┘    └─────────────────┘
+```
+
+#### 服务管理命令
+
+```bash
+# 查看容器状态
+docker ps
+
+# 查看容器日志
+docker logs questions-reason-interface
+
+# 重启服务
+docker restart questions-reason-interface
+
+# 停止服务
+docker stop questions-reason-interface
+
+# 更新服务
+docker pull questions-reason-interface:latest
+docker stop questions-reason-interface
+docker rm questions-reason-interface
+docker run -d --name questions-reason-interface \
+  -p 80:80 \
+  -e REACT_APP_API_URL=http://your-server-ip:8000 \
+  --restart unless-stopped \
+  questions-reason-interface:latest
+```
+
+#### 故障排除
+
+1. **端口冲突**
+```bash
+# 检查端口占用
+netstat -tlnp | grep :80
+# 或
+lsof -i :80
+```
+
+2. **容器无法启动**
+```bash
+# 查看详细日志
+docker logs questions-reason-interface
+
+# 检查镜像是否存在
+docker images | grep questions-reason-interface
+```
+
+3. **API连接失败**
+```bash
+# 测试后端API连接
+curl http://your-server-ip:8000/api/health
+
+# 检查网络连通性
+ping your-backend-server-ip
+```
+
 ## 后端API配置
 
 ### 当前状态

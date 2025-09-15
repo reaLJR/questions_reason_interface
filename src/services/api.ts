@@ -14,7 +14,7 @@ import {
 } from '../types';
 
 // API基础配置
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const API_ENDPOINTS = {
   REASON: '/api/reason',
   BATCH_REASON: '/api/reason/batch',
