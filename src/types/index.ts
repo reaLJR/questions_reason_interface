@@ -136,5 +136,61 @@ export interface AspRunResponse {
   asp_code: string;
 }
 
+// 历史记录相关接口
+export interface HistoryRecord {
+  id: string;
+  question_id: string;
+  question: string;
+  status: 'success' | 'error' | 'timeout' | 'cancelled';
+  input_data: {
+    question: string;
+    max_models: number;
+    timestamp: string;
+  };
+  result?: {
+    result: string;
+    asp_code: string;
+    models: string[];
+  };
+  error_message?: string;
+  execution_time_ms: number;
+  agent_version: string;
+  workflow_version: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// 历史记录查询请求接口
+export interface HistoryQueryRequest {
+  question_id?: string;
+  status?: 'success' | 'error' | 'timeout' | 'cancelled';
+  start_date?: string;
+  end_date?: string;
+  search_text?: string;
+  limit?: number;
+  offset?: number;
+}
+
+// 历史记录查询响应接口
+export interface HistoryQueryResponse {
+  records: HistoryRecord[];
+  total_count: number;
+  limit: number;
+  offset: number;
+}
+
+// 历史记录统计信息接口
+export interface HistoryStats {
+  total_records: number;
+  success_count: number;
+  error_count: number;
+  avg_execution_time_ms: number;
+  recent_activity: Array<{
+    question_id: string;
+    status: string;
+    created_at: string;
+  }>;
+}
+
 
 

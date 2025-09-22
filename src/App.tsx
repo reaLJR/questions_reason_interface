@@ -2,11 +2,12 @@ import React, { useEffect } from 'react';
 import { Layout, Menu, Typography, Space } from 'antd';
 import { 
   BulbOutlined, 
-  SettingOutlined 
+  SettingOutlined,
+  HistoryOutlined
 } from '@ant-design/icons';
 import { useAppStore } from './store';
 import QuestionInput from './components/QuestionInput';
-import HistoryList from './components/HistoryList';
+import HistoryListNew from './components/HistoryListNew';
 import './App.css';
 
 const { Header, Content, Sider } = Layout;
@@ -27,7 +28,7 @@ const App: React.FC = () => {
       case 'input':
         return <QuestionInput />;
       case 'history':
-        return <HistoryList />;
+        return <HistoryListNew />;
       case 'settings':
         return (
           <div style={{ padding: '20px' }}>
@@ -82,12 +83,11 @@ const App: React.FC = () => {
                 icon: <BulbOutlined />,
                 label: '问题输入',
               },
-              // 暂时注释掉历史记录功能
-              // {
-              //   key: 'history',
-              //   icon: <HistoryOutlined />,
-              //   label: '历史记录',
-              // },
+              {
+                key: 'history',
+                icon: <HistoryOutlined />,
+                label: '历史记录',
+              },
               {
                 key: 'settings',
                 icon: <SettingOutlined />,

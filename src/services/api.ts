@@ -10,7 +10,11 @@ import {
   AspValidateRequest,
   AspValidateResponse,
   AspRunRequest,
-  AspRunResponse
+  AspRunResponse,
+  HistoryRecord,
+  HistoryQueryRequest,
+  HistoryQueryResponse,
+  HistoryStats
 } from '../types';
 
 // API基础配置
@@ -21,7 +25,9 @@ const API_ENDPOINTS = {
   HEALTH: '/api/health',
   WORKFLOW_INFO: '/api/workflow/info',
   ASP_VALIDATE: '/api/asp/validate',
-  ASP_RUN: '/api/asp/run'
+  ASP_RUN: '/api/asp/run',
+  HISTORY_RECORDS: '/api/history/records',
+  HISTORY_STATS: '/api/history/stats'
 };
 
 // 创建axios实例
@@ -233,6 +239,72 @@ export const reasoningAPI = {
         });
       }, 2000);
     });
+  },
+
+  // 历史记录相关API方法
+  // 查询历史记录
+  async getHistoryRecords(params?: HistoryQueryRequest): Promise<HistoryQueryResponse> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.question_id) queryParams.append('question_id', params.question_id);
+      if (params?.status) queryParams.append('status', params.status);
+      if (params?.start_date) queryParams.append('start_date', params.start_date);
+      if (params?.end_date) queryParams.append('end_date', params.end_date);
+      if (params?.search_text) queryParams.append('search_text', params.search_text);
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      if (params?.offset) queryParams.append('offset', params.offset.toString());
+
+      const url = `${API_ENDPOINTS.HISTORY_RECORDS}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const response = await apiClient.get(url);
+      return response.data;
+    } catch (error: any) {
+      handleApiError(error);
+      throw error;
+    }
+  },
+
+  // 获取单个历史记录
+  async getHistoryRecord(recordId: string): Promise<HistoryRecord> {
+    try {
+      const response = await apiClient.get(`${API_ENDPOINTS.HISTORY_RECORDS}/${recordId}`);
+      return response.data;
+    } catch (error: any) {
+      handleApiError(error);
+      throw error;
+    }
+  },
+
+  // 根据问题ID获取历史记录
+  async getHistoryRecordsByQuestionId(questionId: string, limit: number = 10): Promise<{question_id: string, records: HistoryRecord[], count: number}> {
+    try {
+      const response = await apiClient.get(`${API_ENDPOINTS.HISTORY_RECORDS}/question/${questionId}?limit=${limit}`);
+      return response.data;
+    } catch (error: any) {
+      handleApiError(error);
+      throw error;
+    }
+  },
+
+  // 获取历史记录统计信息
+  async getHistoryStats(): Promise<HistoryStats> {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.HISTORY_STATS);
+      return response.data;
+    } catch (error: any) {
+      handleApiError(error);
+      throw error;
+    }
+  },
+
+  // 删除历史记录
+  async deleteHistoryRecord(recordId: string): Promise<{status: string, message: string, timestamp: string}> {
+    try {
+      const response = await apiClient.delete(`${API_ENDPOINTS.HISTORY_RECORDS}/${recordId}`);
+      return response.data;
+    } catch (error: any) {
+      handleApiError(error);
+      throw error;
+    }
   }
 };
 
