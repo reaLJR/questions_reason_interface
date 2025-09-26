@@ -10,6 +10,22 @@ import QuestionInput from './components/QuestionInput';
 import HistoryListNew from './components/HistoryListNew';
 import './App.css';
 
+// 测试API连接
+const testAPIConnection = async () => {
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+  console.log('🔍 当前API配置:', API_BASE_URL);
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/health`);
+    const data = await response.json();
+    console.log('✅ API连接成功:', data);
+    return true;
+  } catch (error) {
+    console.error('❌ API连接失败:', error);
+    return false;
+  }
+};
+
 const { Header, Content, Sider } = Layout;
 const { Title } = Typography;
 
@@ -17,9 +33,10 @@ const App: React.FC = () => {
   const [selectedKey, setSelectedKey] = React.useState('input');
   const { loadHistoryFromStorage } = useAppStore();
 
-  // 初始化时加载历史记录
+  // 初始化时加载历史记录和测试API连接
   useEffect(() => {
     loadHistoryFromStorage();
+    testAPIConnection();
   }, [loadHistoryFromStorage]);
 
   // 渲染内容区域

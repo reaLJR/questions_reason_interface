@@ -60,7 +60,7 @@ ssh root@139.196.254.168 << 'EOF'
     # 运行新容器
     echo "启动新容器..."
     docker run -d --name questions-reason-interface \
-      -p 8080:80 \
+      -p 80:80 \
       -e REACT_APP_API_URL=http://139.196.254.168:8000 \
       --restart unless-stopped \
       questions-reason-interface:latest
@@ -69,7 +69,7 @@ ssh root@139.196.254.168 << 'EOF'
     rm -f /root/questions-reason-interface.tar
     
     echo "✅ 服务器部署完成"
-    echo "应用已启动，可通过 http://139.196.254.168:8080/ 访问"
+    echo "应用已启动，可通过 http://139.196.254.168/ 访问"
 EOF
 
 if [ $? -eq 0 ]; then
@@ -77,10 +77,10 @@ if [ $? -eq 0 ]; then
     echo "🎉 部署完成！"
     echo ""
     echo "应用已成功部署到服务器"
-    echo "访问地址: http://139.196.254.168:8080/"
+    echo "访问地址: http://139.196.254.168/"
     echo ""
     echo "测试命令:"
-    echo "curl http://139.196.254.168:8080/"
+    echo "curl http://139.196.254.168/"
 else
     echo "❌ 服务器部署失败"
     exit 1
