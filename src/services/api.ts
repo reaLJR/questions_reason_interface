@@ -14,7 +14,9 @@ import {
   HistoryRecord,
   HistoryQueryRequest,
   HistoryQueryResponse,
-  HistoryStats
+  HistoryStats,
+  ReasoningStrategy,
+  StrategiesResponse
 } from '../types';
 
 // API基础配置
@@ -22,6 +24,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const API_ENDPOINTS = {
   REASON: '/api/reason',
   BATCH_REASON: '/api/reason/batch',
+  STRATEGIES: '/api/reason/strategies',
   HEALTH: '/api/health',
   WORKFLOW_INFO: '/api/workflow/info',
   ASP_VALIDATE: '/api/asp/validate',
@@ -43,8 +46,22 @@ const apiClient = axios.create({
 const handleApiError = (error: any) => {
   if (error.response) {
     // 服务器响应了错误状态码
-    console.error('API错误响应:', error.response.status, error.response.data);
-    throw new Error(`服务器错误: ${error.response.status} - ${error.response.data?.error || '未知错误'}`);
+    const { status, data } = error.response;
+    const detail = data?.detail || data?.error || '未知错误';
+    console.error('API错误响应:', status, data);
+    
+    switch (status) {
+      case 400:
+        throw new Error(`请求参数错误: ${detail}`);
+      case 404:
+        throw new Error(`资源未找到: ${detail}`);
+      case 422:
+        throw new Error(`数据验证失败: ${detail}`);
+      case 500:
+        throw new Error(`服务器内部错误: ${detail}`);
+      default:
+        throw new Error(`服务器错误 (${status}): ${detail}`);
+    }
   } else if (error.request) {
     // 请求已发出但没有收到响应
     console.error('网络连接失败:', error.request);
@@ -63,54 +80,83 @@ const cleanJsonString = (str: string): string => {
   return str.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
 };
 
-// 解析工作流结果
+// 解析工作流结果（支持新旧两种格式）
 export const parseWorkflowResult = (result: any): ParsedWorkflowResult => {
   try {
-    // 处理 asp_result，它可能是一个对象或字符串
-    let aspResult = result.asp_result;
-    if (typeof result.asp_result === 'string') {
-      try {
-        aspResult = JSON.parse(result.asp_result);
-      } catch {
-        aspResult = result.asp_result;
+    // 检测是新格式还是旧格式
+    const isNewFormat = result.answer !== undefined && result.reasoning_steps !== undefined;
+    
+    if (isNewFormat) {
+      // 新API格式
+      console.log('检测到新API格式');
+      return {
+        answer: result.answer || '',
+        explanation: result.explanation || '',
+        reasoningSteps: result.reasoning_steps || [],
+        // 为了向后兼容，从reasoning_steps中提取旧字段
+        currentStep: 'completed'
+      };
+    } else {
+      // 旧API格式（向后兼容）
+      console.log('检测到旧API格式');
+      let aspResult = result.asp_result;
+      if (typeof result.asp_result === 'string') {
+        try {
+          aspResult = JSON.parse(result.asp_result);
+        } catch {
+          aspResult = result.asp_result;
+        }
       }
-    }
 
-    return {
-      entities: result.entities || '',
-      relations: result.relations || '',
-      searchSpace: result.search_space || '',
-      arguments: result.arguments || '',
-      targets: result.targets || '',
-      aspProgram: result.asp_program || '',
-      aspResult: aspResult,
-      interpretation: JSON.parse(cleanJsonString(result.interpretation || '{}')),
-      finalAnswer: JSON.parse(cleanJsonString(result.final_answer || '{}')),
-      currentStep: result.current_step || 'unknown'
-    };
+      return {
+        answer: result.final_answer || '',
+        explanation: result.interpretation || '',
+        reasoningSteps: [],
+        entities: result.entities || '',
+        relations: result.relations || '',
+        searchSpace: result.search_space || '',
+        arguments: result.arguments || '',
+        targets: result.targets || '',
+        aspProgram: result.asp_program || '',
+        aspResult: aspResult,
+        interpretation: result.interpretation ? JSON.parse(cleanJsonString(result.interpretation)) : {},
+        finalAnswer: result.final_answer ? JSON.parse(cleanJsonString(result.final_answer)) : {},
+        currentStep: result.current_step || 'unknown'
+      };
+    }
   } catch (error) {
     console.error('解析工作流结果失败:', error);
     console.error('原始数据:', result);
     
+    // 返回安全的默认值
     return {
-      entities: result.entities || '',
-      relations: result.relations || '',
-      searchSpace: result.search_space || '',
-      arguments: result.arguments || '',
-      targets: result.targets || '',
-      aspProgram: result.asp_program || '',
-      aspResult: result.asp_result || {},
-      interpretation: result.interpretation ? cleanJsonString(result.interpretation) : '{}',
-      finalAnswer: result.final_answer ? cleanJsonString(result.final_answer) : '{}',
-      currentStep: result.current_step || 'unknown'
+      answer: '解析失败',
+      explanation: '无法解析后端响应数据',
+      reasoningSteps: [],
+      currentStep: 'error'
     };
   }
 };
 
 // API服务对象
 export const reasoningAPI = {
+  // 获取可用的推理策略列表
+  async getAvailableStrategies(): Promise<StrategiesResponse> {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.STRATEGIES);
+      return response.data;
+    } catch (error: any) {
+      handleApiError(error);
+      throw error;
+    }
+  },
+
   // 发送推理请求
-  async sendReasoningRequest(question: string, questionId?: string): Promise<QuestionResponse> {
+  async sendReasoningRequest(
+    question: string, 
+    questionId?: string,
+    strategy?: ReasoningStrategy
+  ): Promise<QuestionResponse> {
     try {
       console.log('开始发送推理请求...');
       console.log('API_BASE_URL:', API_BASE_URL);
@@ -119,7 +165,8 @@ export const reasoningAPI = {
       const requestData: QuestionRequest = {
         question: question,
         question_id: questionId || `q_${Date.now()}`,
-        max_models: 10
+        max_models: 10,
+        ...(strategy && { strategy })
       };
 
       console.log('请求数据:', requestData);
@@ -143,11 +190,14 @@ export const reasoningAPI = {
   },
 
   // 批量推理请求
-  async sendBatchReasoningRequest(questions: Array<{question: string, question_id: string}>): Promise<BatchQuestionResponse> {
+  async sendBatchReasoningRequest(
+    questions: Array<{question: string, question_id?: string, max_models?: number, strategy?: ReasoningStrategy}>,
+    parallel: boolean = true
+  ): Promise<BatchQuestionResponse> {
     try {
       const requestData: BatchQuestionRequest = {
         questions: questions,
-        max_models: 10
+        parallel: parallel
       };
 
       const response = await apiClient.post(API_ENDPOINTS.BATCH_REASON, requestData);
@@ -220,20 +270,31 @@ export const reasoningAPI = {
           question: question,
           status: 'success',
           result: {
-            entities: "category(letter, type).",
-            relations: "transitive_subset(letter, type).",
-            search_space: "category(letter, type).\n{ transitive_subset(X, Y) } :- category(X, _), category(Y, _), X != Y.",
-            arguments: "transitive_subset(a, b).\ntransitive_subset(b, c).",
-            targets: "goal :- transitive_subset(a, c).\n:- not goal.",
-            asp_program: "category(letter, type).\ntransitive_subset(a, b).\ntransitive_subset(b, c).\ngoal :- transitive_subset(a, c).\n:- not goal.\nanswer.\n2{options; rule}2 :- answer.",
-            asp_result: {
-              success: true,
-              models: ["answer", "answer"],
-              model_count: 2
-            },
-            interpretation: "{\"answer\": \"是的，所有的A都是C\", \"confidence\": 0.95}",
-            final_answer: "{\"answer\": \"是的，所有的A都是C\", \"confidence\": 0.95}",
-            current_step: "completed"
+            answer: "是的，所有的A都是C",
+            explanation: "根据三段论推理规则，如果所有A都是B，且所有B都是C，那么可以推导出所有A都是C。",
+            reasoning_steps: [
+              {
+                step_number: 1,
+                step_name: "Entity Extraction",
+                description: "提取实体：A, B, C",
+                metadata: {},
+                execution_time_ms: 100
+              },
+              {
+                step_number: 2,
+                step_name: "Relation Extraction",
+                description: "提取关系：A→B, B→C",
+                metadata: {},
+                execution_time_ms: 150
+              },
+              {
+                step_number: 3,
+                step_name: "Reasoning",
+                description: "应用三段论推理",
+                metadata: {},
+                execution_time_ms: 200
+              }
+            ]
           },
           timestamp: new Date().toISOString()
         });

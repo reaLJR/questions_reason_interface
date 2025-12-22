@@ -278,6 +278,9 @@ const HistoryListNew: React.FC = () => {
         <div style={{ flex: 1 }}>
           <WorkflowResultComponent
             result={{
+              answer: selectedRecord.result || '',
+              explanation: '',
+              reasoningSteps: [],
               entities: selectedRecord.result || '',
               relations: '',
               searchSpace: '',

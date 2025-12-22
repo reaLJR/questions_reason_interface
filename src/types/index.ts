@@ -1,3 +1,11 @@
+// 推理策略类型
+export type ReasoningStrategy = 'asp' | 'single_llm' | 'simple_llm';
+
+// 策略列表响应接口
+export interface StrategiesResponse {
+  available_strategies: ReasoningStrategy[];
+}
+
 // 推理结果接口
 export interface ReasoningResult {
   id: string;
@@ -7,18 +15,28 @@ export interface ReasoningResult {
   steps?: ReasoningStep[];
 }
 
-// 推理步骤接口
+// 推理步骤接口（旧格式，保留用于历史记录）
 export interface ReasoningStep {
   step: string;
   content: string;
   status: 'success' | 'error' | 'pending';
 }
 
+// 新增：推理步骤详情（新API格式）
+export interface ReasoningStepDetail {
+  step_number: number;
+  step_name: string;
+  description: string;
+  metadata: any;
+  execution_time_ms: number | null;
+}
+
 // 问题请求接口
 export interface QuestionRequest {
   question: string;
-  question_id: string;
-  max_models: number;
+  question_id?: string;
+  max_models?: number;
+  strategy?: ReasoningStrategy;
 }
 
 // 问题响应接口
@@ -27,12 +45,13 @@ export interface QuestionResponse {
   question: string;
   status: string;
   result: WorkflowResult;
-  error?: string;
+  error_message?: string;
+  execution_time_ms?: number;
   timestamp: string;
 }
 
-// 工作流结果接口
-export interface WorkflowResult {
+// 工作流结果接口（旧格式，保留用于兼容）
+export interface WorkflowResultOld {
   entities: string;
   relations: string;
   search_space: string;
@@ -45,18 +64,29 @@ export interface WorkflowResult {
   current_step: string;
 }
 
-// 解析后的工作流结果接口
+// 新的工作流结果接口（新API格式）
+export interface WorkflowResult {
+  answer: string;
+  explanation?: string;
+  reasoning_steps: ReasoningStepDetail[];
+}
+
+// 解析后的工作流结果接口（统一格式）
 export interface ParsedWorkflowResult {
-  entities: string;
-  relations: string;
-  searchSpace: string;
-  arguments: string;
-  targets: string;
-  aspProgram: string;
-  aspResult: any;
-  interpretation: any;
-  finalAnswer: any;
-  currentStep: string;
+  answer: string;
+  explanation?: string;
+  reasoningSteps: ReasoningStepDetail[];
+  // 保留旧字段用于向后兼容（可选）
+  entities?: string;
+  relations?: string;
+  searchSpace?: string;
+  arguments?: string;
+  targets?: string;
+  aspProgram?: string;
+  aspResult?: any;
+  interpretation?: any;
+  finalAnswer?: any;
+  currentStep?: string;
 }
 
 // API响应接口
@@ -79,16 +109,19 @@ export interface HistoryStorage {
 export interface BatchQuestionRequest {
   questions: Array<{
     question: string;
-    question_id: string;
+    question_id?: string;
+    max_models?: number;
+    strategy?: ReasoningStrategy;
   }>;
-  max_models: number;
+  parallel?: boolean;
 }
 
 // 批量推理响应接口
 export interface BatchQuestionResponse {
-  status: string;
+  total: number;
+  successful: number;
+  failed: number;
   results: QuestionResponse[];
-  timestamp: string;
 }
 
 // 工作流信息接口
@@ -102,11 +135,10 @@ export interface WorkflowInfo {
 export interface HealthResponse {
   status: string;
   timestamp: string;
-  workflow_ready: boolean;
   version: string;
-  services: {
-    asp_solver: string;
-    llm_service: string;
+  engine_info: {
+    engine_type: string;
+    version: string;
   };
 }
 
@@ -138,26 +170,19 @@ export interface AspRunResponse {
 
 // 历史记录相关接口
 export interface HistoryRecord {
-  id: string;
+  record_id: string;
   question_id: string;
   question: string;
-  status: 'success' | 'error' | 'timeout' | 'cancelled';
-  input_data: {
-    question: string;
-    max_models: number;
-    timestamp: string;
-  };
+  status: 'success' | 'error';
   result?: {
-    result: string;
-    asp_code: string;
-    models: string[];
+    answer: string;
+    confidence?: number;
   };
   error_message?: string;
   execution_time_ms: number;
   agent_version: string;
   workflow_version: string;
   created_at: string;
-  updated_at: string;
 }
 
 // 历史记录查询请求接口
@@ -173,23 +198,19 @@ export interface HistoryQueryRequest {
 
 // 历史记录查询响应接口
 export interface HistoryQueryResponse {
+  total: number;
   records: HistoryRecord[];
-  total_count: number;
   limit: number;
   offset: number;
 }
 
 // 历史记录统计信息接口
 export interface HistoryStats {
-  total_records: number;
-  success_count: number;
-  error_count: number;
-  avg_execution_time_ms: number;
-  recent_activity: Array<{
-    question_id: string;
-    status: string;
-    created_at: string;
-  }>;
+  total_executions: number;
+  successful_executions: number;
+  failed_executions: number;
+  success_rate: number;
+  average_execution_time_ms: number;
 }
 
 
